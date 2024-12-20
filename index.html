@@ -1,0 +1,222 @@
+<html>
+    <head>
+        <title>Custom UI</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+            }
+            #vertical-line {
+                width: 1px;
+                background-color: black;
+                height: 100vh;
+                float: left;
+            }
+            #left-side {
+                width: 54%;
+                float: left;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                height: 100vh;
+            }
+            #clickable-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                max-height: calc(100vh - 100px);  /* Set a maximum height */
+                overflow-y: auto;  /* Make it scrollable */
+            }
+            #clickable-list li {
+                cursor: pointer;
+                padding: 10px;
+                border: 1px solid #ccc;
+                margin: 2px 0;
+                background-color: #f9f9f9;
+            }
+            #clickable-list li:hover {
+                background-color: #eee;
+            }
+            .button-container {
+                display: flex;
+                justify-content: center;
+            }
+            /* Styling for buttons */
+            button {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                margin: 5px;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+            button:hover {
+                background-color: #0056b3;
+            }
+
+            /* The overlay */
+            .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1000;
+            }
+            .overlay-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="left-side">
+            <ul id="clickable-list" style="flex-grow: 1;">
+                <li onclick="handleClick('item1')">Item 1</li>
+                <li onclick="handleClick('item2')">Item 2</li>
+                <li onclick="handleClick('item3')">Item 3</li>
+            </ul>
+             <div class="button-container" style="height: 10%;">
+                <button onclick="startLog()" style="font-size: 20px;">Start Log</button>
+                <button onclick="clearLog()" style="font-size: 20px;">Clear Log</button>
+            </div>
+            <!-- <div class="button-container" style="height: 10%;">
+                <button onclick="filter()" style="font-size: 20px;">Filter</button>
+            </div> -->
+            <div class="button-container" style="height: 10%;">
+                <button onclick="filter()" style="font-size: 20px;">Filter</button>
+                <div id="checklist-container">
+                    <input type="checkbox" id="option1" name="option1" class="checkbox-option">
+                    <label for="option1">troughfilter</label><br>
+                    <input type="checkbox" id="option2" name="option2" class="checkbox-option">
+                    <label for="option2">risefilter</label><br>
+                    <input type="checkbox" id="option3" name="option3" class="checkbox-option">
+                    <label for="option3">avefilter</label><br>
+                </div>
+            </div>
+            <!-- Overlay -->
+            <div id="overlay" class="overlay">
+                <div class="overlay-content">
+                <p>Loading ...</p>
+                </div>
+            </div>
+        </div>
+        <div id="vertical-line"></div>
+        <div style="width: 44%; float: right;">
+            <img id="image-viewer" src="" alt="Image Viewer" />
+        </div>
+        <script>
+            var file_path = 'no_img.png';
+            let loadingWindow = null;
+
+            function showOverlay() {
+                document.getElementById('overlay').style.display = 'block';
+            }
+
+            function hideOverlay() {
+                document.getElementById('overlay').style.display = 'none';
+            }
+
+
+            function handleClick(file_name){
+                file_path = file_name;
+            }
+            async function startLog() {         
+                const response = await fetch('/start-log', { method: 'POST' });
+                const data = await response.json();
+                console.log(data);
+            }
+            async function clearLog(){
+                showOverlay();
+                const response = await fetch('/clear-log', { method: 'POST' });
+                const data = await response.json();
+                console.log(data);
+                hideOverlay();
+            }
+            async function filter() {
+                const checkboxes = document.querySelectorAll('.checkbox-option');
+                const selectedOptions = [];
+
+                checkboxes.forEach((checkbox) => {
+                    if (checkbox.checked) {
+                        const label = document.querySelector(`label[for="${checkbox.id}"]`);
+                        const labelText = label.textContent || label.innerText;
+                        selectedOptions.push(labelText);
+                    }
+                });
+
+                console.log(selectedOptions);
+                showOverlay();
+                const response = await fetch('/filter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(selectedOptions),
+                });
+                
+                const data = await response.json();
+                console.log(data);
+                hideOverlay();
+            }
+            async function updateImage(file_name) {
+                const url = `/new-image-url?file_name=${file_name}`;
+                try {
+                    console.log(url);
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    const base64Image = data.image_base64;
+                    document.getElementById('image-viewer').src = "data:image/png;base64," + base64Image;
+                } catch (error) {
+                    console.error("There was a problem with the fetch operation:", error);
+                    // Display a warning message
+                    alert("Failed to update the image. Please try again.");
+                }
+            }
+            async function updatelist() {
+                const response = await fetch('/update_result_list');
+                const data = await response.json();
+                const result_list = data.result; 
+                console.log(data)
+                if(result_list == undefined){
+                    return;
+                }
+
+                const ulElement = document.getElementById('clickable-list');
+    
+                // Clear the current list first
+                ulElement.innerHTML = '';
+
+                // Add new list items
+                for (let i = 0; i < result_list.length; i++) {
+                    const item = result_list[i];
+                    const liElement = document.createElement('li');
+                    
+                    liElement.textContent = item;
+                    
+                    // Adding a click event listener to each li item
+                    liElement.addEventListener('click', function() {
+                        handleClick(item);
+                    });
+
+                    ulElement.appendChild(liElement);
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', (event) => {
+                // Automatically update the list every 5 seconds
+                console.log(file_path)
+                setInterval(updatelist, 1000);
+                setInterval(() => {
+                    updateImage(file_path);
+                }, 1000);
+            });
+        </script>
+    </body>
+</html>
+
